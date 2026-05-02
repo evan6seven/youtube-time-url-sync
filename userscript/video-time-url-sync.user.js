@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Video Time URL Sync
-// @namespace    https://github.com/evfrenkel/youtube-time-url-sync
+// @namespace    https://github.com/evan6seven/youtube-time-url-sync
 // @version      1.1.0
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
@@ -10,8 +10,8 @@
 // @match        *://*.kick.com/*
 // @run-at       document-idle
 // @grant        none
-// @downloadURL  https://raw.githubusercontent.com/evfrenkel/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js
-// @updateURL    https://raw.githubusercontent.com/evfrenkel/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js
+// @downloadURL  https://raw.githubusercontent.com/evan6seven/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js
+// @updateURL    https://raw.githubusercontent.com/evan6seven/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js
 // ==/UserScript==
 
 (() => {

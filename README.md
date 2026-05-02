@@ -15,7 +15,7 @@ Firefox extension that lets you manually sync the `t` query parameter in support
 ## Install the userscript
 1. Install a userscript manager such as Violentmonkey, Tampermonkey, or Greasemonkey.
 2. Open the userscript URL:
-   `https://raw.githubusercontent.com/evfrenkel/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js`
+   `https://raw.githubusercontent.com/evan6seven/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js`
 3. Confirm the install in your userscript manager.
 4. Navigate to a supported page. The page button updates the `t` param, and the display shows the current `t` value from the URL.
 
