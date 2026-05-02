@@ -105,15 +105,33 @@
 
   const getKickVodActionState = () => {
     const key = `${window.location.pathname}${window.location.search}`;
-    const state = kickVodActions.get(key) ?? { theaterMode: false };
+    const state = kickVodActions.get(key) ?? { chatClosed: false, theaterMode: false };
     kickVodActions.set(key, state);
     return state;
+  };
+
+  const findKickChatToggleButton = () => {
+    const buttons = document.querySelectorAll("button");
+
+    for (const button of buttons) {
+      if (button.textContent?.trim() === "Chat") return button;
+    }
+
+    return null;
   };
 
   const clickKickVodPlayerControls = () => {
     if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
 
     const state = getKickVodActionState();
+
+    if (!state.chatClosed && document.body.textContent?.includes("Chat Replay")) {
+      const chatToggleButton = findKickChatToggleButton();
+      if (chatToggleButton) {
+        chatToggleButton.click();
+        state.chatClosed = true;
+      }
+    }
 
     if (!state.theaterMode) {
       const theaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
