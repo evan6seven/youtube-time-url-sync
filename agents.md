@@ -1,14 +1,15 @@
 # Agents Guide
 
-Project: Firefox add-on that syncs the YouTube watch URL `t` parameter with the current playback time.
+Project: userscript that syncs supported video URLs' `t` parameter with the current playback time.
 
 Key points
-- Target: `*.youtube.com` watch pages; content script runs at `document_idle`.
-- Behavior: Does not auto-sync. Clicking the toolbar icon sends a message to the content script to set `t` to the current playback time via `history.replaceState`.
-- Navigation: No history patching; relies on the current page URL when the user clicks.
-- Skips: Shorts are ignored implicitly because path `/watch` is required; live (DVR) is supported.
+- Target: YouTube watch pages and Kick pages matched by the userscript metadata.
+- Behavior: Does not auto-sync time. Clicking the in-page sync button sets `t` to the current playback time via `history.replaceState`.
+- UI: The userscript adds a compact bottom-center control with a sync button and URL time display.
+- Kick VOD behavior: On `/.../videos/...` pages, the userscript closes the chat sidebar and enables theater mode on page load/navigation. The sync button must not toggle chat or theater mode.
+- Skips: YouTube Shorts are ignored implicitly because path `/watch` is required; YouTube live streams with DVR are supported.
 
 Dev notes
-- Content script handler is in `src/content.js`; background click handler is `src/background.js`.
-- Manifest is `manifest_version: 3` with background.scripts (service workers disabled); uses Gecko id `youtube-time-url-sync@evfrenkel.com`.
-- Load for testing via `about:debugging` → "Load Temporary Add-on…" → select `manifest.json`, then click the toolbar icon on a watch page to sync `t`.
+- Userscript implementation is in `userscript/video-time-url-sync.user.js`.
+- Install URL: `https://raw.githubusercontent.com/evan6seven/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js`
+- Keep this project userscript-only; do not add browser extension manifests, background scripts, content scripts, or packaged extension assets.
