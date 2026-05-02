@@ -28,6 +28,8 @@
     /^\/[^/]+\/videos\/[^/]+\/?$/.test(pathname) ||
     /^\/[^/]+\/?$/.test(pathname);
 
+  const isKickVideosPath = (pathname) => /^\/[^/]+\/videos\/[^/]+\/?$/.test(pathname);
+
   const isSyncablePage = () => {
     const { hostname, pathname } = window.location;
 
@@ -100,11 +102,21 @@
     return true;
   };
 
+  const unmuteKickVideo = () => {
+    if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
+
+    const video = getVideoElement();
+    if (!video) return;
+
+    video.muted = false;
+    video.removeAttribute("muted");
+  };
+
   const createWidget = () => {
     const widget = document.createElement("div");
     widget.id = "video-time-url-sync";
     widget.innerHTML = `
-      <button type="button" class="vtus-button">Sync URL time</button>
+      <button type="button" class="vtus-button" aria-label="Sync URL time" title="Sync URL time">↻</button>
       <span class="vtus-display" aria-live="polite"></span>
     `;
 
@@ -132,13 +144,14 @@
       }
 
       #video-time-url-sync .vtus-button {
+        width: 30px;
         min-height: 30px;
-        padding: 0 10px;
+        padding: 0;
         color: #0f172a;
         background: #f8fafc;
         border: 0;
         border-radius: 6px;
-        font: inherit;
+        font: 20px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         font-weight: 700;
         cursor: pointer;
       }
@@ -153,7 +166,7 @@
       }
 
       #video-time-url-sync .vtus-display {
-        min-width: 92px;
+        min-width: 62px;
         white-space: nowrap;
       }
     `;
@@ -172,13 +185,18 @@
 
     widget.hidden = !syncable;
     button.disabled = !syncable;
-    display.textContent = rawTime === null ? "URL t: none" : `URL t: ${rawTime} (${formatSeconds(seconds)})`;
+    display.textContent = rawTime === null ? "none" : `${rawTime} (${formatSeconds(seconds)})`;
   };
 
   button.addEventListener("click", () => {
     syncTimeToUrl();
     updateWidget();
   });
+
+  const handleUrlChange = () => {
+    updateWidget();
+    unmuteKickVideo();
+  };
 
   History.prototype.pushState = function pushState(...args) {
     const result = nativePushState.apply(this, args);
@@ -192,9 +210,16 @@
     return result;
   };
 
-  window.addEventListener("popstate", updateWidget);
-  window.addEventListener("video-time-url-sync:urlchange", updateWidget);
-  window.addEventListener("yt-navigate-finish", updateWidget);
+  const observer = new MutationObserver(unmuteKickVideo);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+
+  window.addEventListener("popstate", handleUrlChange);
+  window.addEventListener("video-time-url-sync:urlchange", handleUrlChange);
+  window.addEventListener("yt-navigate-finish", handleUrlChange);
 
   updateWidget();
+  unmuteKickVideo();
 })();

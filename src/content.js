@@ -9,6 +9,8 @@ const isKickSyncablePath = (pathname) =>
   /^\/[^/]+\/videos\/[^/]+\/?$/.test(pathname) ||
   /^\/[^/]+\/?$/.test(pathname);
 
+const isKickVideosPath = (pathname) => /^\/[^/]+\/videos\/[^/]+\/?$/.test(pathname);
+
 const isSyncablePage = () => {
   const { hostname, pathname } = window.location;
 
@@ -51,6 +53,30 @@ const syncTimeToUrl = () => {
   url.searchParams.set("t", String(seconds));
   nativeReplaceState.call(history, history.state, "", `${url.pathname}${url.search}${url.hash}`);
 };
+
+const unmuteKickVideo = () => {
+  if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
+
+  const video = getVideoElement();
+  if (!video) return;
+
+  video.muted = false;
+  video.removeAttribute("muted");
+};
+
+const watchForKickVideos = () => {
+  unmuteKickVideo();
+
+  const observer = new MutationObserver(unmuteKickVideo);
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+
+  window.addEventListener("popstate", unmuteKickVideo);
+};
+
+watchForKickVideos();
 
 const runtime = typeof browser !== "undefined" ? browser.runtime : chrome?.runtime;
 if (runtime) {
