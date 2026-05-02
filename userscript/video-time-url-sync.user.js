@@ -114,7 +114,8 @@
     const buttons = document.querySelectorAll("button");
 
     for (const button of buttons) {
-      if (button.textContent?.trim() === "Chat") return button;
+      const closeChatPath = button.querySelector('path[d^="M23.2095 18.3328"]');
+      if (closeChatPath) return button;
     }
 
     return null;
@@ -125,7 +126,7 @@
 
     const state = getKickVodActionState();
 
-    if (!state.chatClosed && document.body.textContent?.includes("Chat Replay")) {
+    if (!state.chatClosed) {
       const chatToggleButton = findKickChatToggleButton();
       if (chatToggleButton) {
         chatToggleButton.click();
