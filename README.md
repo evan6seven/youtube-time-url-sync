@@ -12,9 +12,17 @@ Firefox extension that lets you manually sync the `t` query parameter in support
 3. Select this folder's `manifest.json`.
 4. Navigate to a supported page, start playback, then click the extension icon to update the `t` param.
 
+## Install the userscript
+1. Install a userscript manager such as Violentmonkey, Tampermonkey, or Greasemonkey.
+2. Open the userscript URL:
+   `https://raw.githubusercontent.com/evfrenkel/youtube-time-url-sync/main/userscript/video-time-url-sync.user.js`
+3. Confirm the install in your userscript manager.
+4. Navigate to a supported page. The page button updates the `t` param, and the display shows the current `t` value from the URL.
+
 ## Notes
 - YouTube support is limited to standard `/watch` pages, including live streams with DVR. Shorts are ignored.
 - Kick support targets VOD pages and channel pages with an active HTML5 video player.
+- The userscript version lives at `userscript/video-time-url-sync.user.js`.
 
 ## License
 MIT License. See `LICENSE` for details.
