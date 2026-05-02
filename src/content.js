@@ -56,7 +56,7 @@ const syncTimeToUrl = () => {
 };
 
 const getKickVodActionState = () => {
-  const key = `${window.location.pathname}${window.location.search}`;
+  const key = window.location.pathname;
   const state = kickVodActions.get(key) ?? { chatClosed: false, theaterMode: false };
   kickVodActions.set(key, state);
   return state;

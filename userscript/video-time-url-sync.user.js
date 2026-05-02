@@ -99,12 +99,11 @@
 
     url.searchParams.set("t", String(seconds));
     nativeReplaceState.call(history, history.state, "", `${url.pathname}${url.search}${url.hash}`);
-    window.dispatchEvent(new Event("video-time-url-sync:urlchange"));
     return true;
   };
 
   const getKickVodActionState = () => {
-    const key = `${window.location.pathname}${window.location.search}`;
+    const key = window.location.pathname;
     const state = kickVodActions.get(key) ?? { chatClosed: false, theaterMode: false };
     kickVodActions.set(key, state);
     return state;
