@@ -6,7 +6,7 @@ Userscript that lets you manually sync the `t` query parameter in supported vide
 - Runs on YouTube and Kick pages through a userscript manager.
 - Adds a compact bottom-center control with a sync button and the current URL `t` value.
 - When you click the sync button, it reads the active video playback time and updates the URL's `t` param in-place via `history.replaceState`.
-- On Kick VOD pages, it also closes the chat sidebar and enables theater mode on page load.
+- On Kick VOD pages, it also unmutes the player, closes the chat sidebar, and enables theater mode on page load.
 
 ## Install
 1. Install a userscript manager such as Violentmonkey, Tampermonkey, or Greasemonkey.

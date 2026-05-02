@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.1.0
+// @version      1.2.0
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -104,7 +104,7 @@
 
   const getKickVodActionState = () => {
     const key = window.location.pathname;
-    const state = kickVodActions.get(key) ?? { chatClosed: false, theaterMode: false };
+    const state = kickVodActions.get(key) ?? { chatClosed: false, lastUnmuteClick: 0, theaterMode: false };
     kickVodActions.set(key, state);
     return state;
   };
@@ -120,10 +120,44 @@
     return null;
   };
 
+  const clickKickVolumeControl = (video) => {
+    const rect = video.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+
+    const clientX = rect.left + 72;
+    const clientY = rect.bottom - 23;
+    const mouseMove = new MouseEvent("mousemove", { bubbles: true, clientX, clientY });
+
+    video.dispatchEvent(mouseMove);
+    document.dispatchEvent(mouseMove);
+
+    const clickButtonAtPoint = () => {
+      if (!video.muted) return true;
+      const target = document.elementFromPoint(clientX, clientY);
+      const volumeButton = target?.closest?.("button");
+      if (!volumeButton) return false;
+
+      volumeButton.click();
+      return true;
+    };
+
+    if (clickButtonAtPoint()) return true;
+
+    window.setTimeout(clickButtonAtPoint, 100);
+    return true;
+  };
+
   const clickKickVodPlayerControls = () => {
     if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
 
     const state = getKickVodActionState();
+    const video = getVideoElement();
+
+    if (video?.muted && Date.now() - state.lastUnmuteClick > 1000) {
+      if (clickKickVolumeControl(video)) {
+        state.lastUnmuteClick = Date.now();
+      }
+    }
 
     if (!state.chatClosed) {
       const chatToggleButton = findKickChatToggleButton();
