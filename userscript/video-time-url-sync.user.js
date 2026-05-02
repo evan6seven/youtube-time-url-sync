@@ -155,8 +155,9 @@
     style.textContent = `
       #video-time-url-sync {
         position: fixed;
-        right: 16px;
+        left: 50%;
         bottom: 16px;
+        transform: translateX(-50%);
         z-index: 2147483647;
         display: flex;
         align-items: center;
