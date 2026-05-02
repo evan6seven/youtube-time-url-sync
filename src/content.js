@@ -38,6 +38,7 @@ const getVideoElement = () => {
 };
 
 const nativeReplaceState = History.prototype.replaceState;
+const kickVodActions = new Map();
 
 const syncTimeToUrl = () => {
   if (!isSyncablePage()) return;
@@ -54,26 +55,57 @@ const syncTimeToUrl = () => {
   nativeReplaceState.call(history, history.state, "", `${url.pathname}${url.search}${url.hash}`);
 };
 
-const unmuteKickVideo = () => {
+const getKickVodActionState = () => {
+  const key = `${window.location.pathname}${window.location.search}`;
+  const state = kickVodActions.get(key) ?? { unmuted: false, theaterMode: false };
+  kickVodActions.set(key, state);
+  return state;
+};
+
+const findKickMutedButton = () => {
+  const buttons = document.querySelectorAll("button");
+
+  for (const button of buttons) {
+    const mutedPath = button.querySelector('path[d^="M25.6 19.36"]');
+    if (mutedPath) return button;
+  }
+
+  return null;
+};
+
+const clickKickVodPlayerControls = () => {
   if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
 
+  const state = getKickVodActionState();
   const video = getVideoElement();
-  if (!video) return;
 
-  video.muted = false;
-  video.removeAttribute("muted");
+  if (!state.unmuted && video?.muted) {
+    const muteButton = findKickMutedButton();
+    if (muteButton) {
+      muteButton.click();
+      state.unmuted = true;
+    }
+  }
+
+  if (!state.theaterMode) {
+    const theaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
+    if (theaterModeButton instanceof HTMLElement) {
+      theaterModeButton.click();
+      state.theaterMode = true;
+    }
+  }
 };
 
 const watchForKickVideos = () => {
-  unmuteKickVideo();
+  clickKickVodPlayerControls();
 
-  const observer = new MutationObserver(unmuteKickVideo);
+  const observer = new MutationObserver(clickKickVodPlayerControls);
   observer.observe(document.documentElement, {
     childList: true,
     subtree: true,
   });
 
-  window.addEventListener("popstate", unmuteKickVideo);
+  window.addEventListener("popstate", clickKickVodPlayerControls);
 };
 
 watchForKickVideos();
