@@ -57,17 +57,23 @@ const syncTimeToUrl = () => {
 
 const getKickVodActionState = () => {
   const key = `${window.location.pathname}${window.location.search}`;
-  const state = kickVodActions.get(key) ?? { unmuted: false, theaterMode: false };
+  const state = kickVodActions.get(key) ?? { lastUnmuteClick: 0, theaterMode: false };
   kickVodActions.set(key, state);
   return state;
 };
 
-const findKickMutedButton = () => {
+const findKickVolumeButton = () => {
   const buttons = document.querySelectorAll("button");
 
   for (const button of buttons) {
-    const mutedPath = button.querySelector('path[d^="M25.6 19.36"]');
-    if (mutedPath) return button;
+    const volumePath = button.querySelector(
+      [
+        'path[d^="M25.6 19.36"]',
+        'path[d^="M21.9749 14.8772"]',
+        'path[d^="M28 13V4H19V7.03"]',
+      ].join(",")
+    );
+    if (volumePath) return button;
   }
 
   return null;
@@ -79,11 +85,11 @@ const clickKickVodPlayerControls = () => {
   const state = getKickVodActionState();
   const video = getVideoElement();
 
-  if (!state.unmuted && video?.muted) {
-    const muteButton = findKickMutedButton();
-    if (muteButton) {
-      muteButton.click();
-      state.unmuted = true;
+  if (video?.muted && Date.now() - state.lastUnmuteClick > 1000) {
+    const volumeButton = findKickVolumeButton();
+    if (volumeButton) {
+      volumeButton.click();
+      state.lastUnmuteClick = Date.now();
     }
   }
 
