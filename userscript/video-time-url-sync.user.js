@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.3
+// @version      1.2.4
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -150,7 +150,16 @@
     return null;
   };
 
-  const isKickChatSidebarOpen = () => Boolean(getVisibleKickChatReplayHeader());
+  const getKickChatSignals = () => {
+    const visibleHeader = getVisibleKickChatReplayHeader();
+    const iconCloseControl = findKickChatCloseControl();
+
+    return {
+      iconCloseControl,
+      isOpen: Boolean(visibleHeader || iconCloseControl),
+      visibleHeader,
+    };
+  };
 
   const findKickChatCloseControlNearHeader = () => {
     const header = getVisibleKickChatReplayHeader();
@@ -176,8 +185,6 @@
   };
 
   const findKickChatCloseControlForOpenSidebar = () => {
-    if (!isKickChatSidebarOpen()) return null;
-
     return findKickChatCloseControl() ?? findKickChatCloseControlNearHeader();
   };
 
@@ -222,24 +229,38 @@
     }
 
     if (!state.chatClosed) {
-      if (!isKickChatSidebarOpen()) {
+      const chatSignals = getKickChatSignals();
+      if (!chatSignals.isOpen) {
         state.chatClosed = true;
-        log("Kick chat sidebar already closed");
+        log("Kick chat sidebar already closed", {
+          iconCloseControl: false,
+          visibleHeader: false,
+        });
       } else if (Date.now() - state.lastChatCloseClick > 1000) {
         const chatCloseControl = findKickChatCloseControlForOpenSidebar();
         if (!chatCloseControl) {
-          log("Kick chat sidebar open, but close control not found");
+          log("Kick chat sidebar open, but close control not found", {
+            iconCloseControl: Boolean(chatSignals.iconCloseControl),
+            visibleHeader: Boolean(chatSignals.visibleHeader),
+          });
         } else {
           chatCloseControl.click();
           state.lastChatCloseClick = Date.now();
-          log("clicked Kick chat close control");
+          log("clicked Kick chat close control", {
+            iconCloseControl: Boolean(chatSignals.iconCloseControl),
+            visibleHeader: Boolean(chatSignals.visibleHeader),
+          });
 
           window.setTimeout(() => {
-            if (!isKickChatSidebarOpen()) {
+            const updatedChatSignals = getKickChatSignals();
+            if (!updatedChatSignals.isOpen) {
               state.chatClosed = true;
               log("Kick chat sidebar closed");
             } else {
-              log("Kick chat sidebar still open after close click");
+              log("Kick chat sidebar still open after close click", {
+                iconCloseControl: Boolean(updatedChatSignals.iconCloseControl),
+                visibleHeader: Boolean(updatedChatSignals.visibleHeader),
+              });
             }
           }, 500);
         }
