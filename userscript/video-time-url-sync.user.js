@@ -104,17 +104,22 @@
 
   const getKickVodActionState = () => {
     const key = window.location.pathname;
-    const state = kickVodActions.get(key) ?? { chatClosed: false, lastUnmuteClick: 0, theaterMode: false };
+    const state = kickVodActions.get(key) ?? {
+      chatClosed: false,
+      lastChatCloseClick: 0,
+      lastUnmuteClick: 0,
+      theaterMode: false,
+    };
     kickVodActions.set(key, state);
     return state;
   };
 
-  const findKickChatToggleButton = () => {
-    const buttons = document.querySelectorAll("button");
+  const findKickChatCloseControl = () => {
+    const controls = document.querySelectorAll('button, [role="button"]');
 
-    for (const button of buttons) {
-      const closeChatPath = button.querySelector('path[d^="M23.2095 18.3328"]');
-      if (closeChatPath) return button;
+    for (const control of controls) {
+      const closeChatPath = control.querySelector('path[d^="M23.2095 18.3328"]');
+      if (closeChatPath) return control;
     }
 
     return null;
@@ -160,10 +165,18 @@
     }
 
     if (!state.chatClosed) {
-      const chatToggleButton = findKickChatToggleButton();
-      if (chatToggleButton) {
-        chatToggleButton.click();
-        state.chatClosed = true;
+      const chatCloseControl = findKickChatCloseControl();
+      if (!chatCloseControl) {
+        state.chatClosed = state.lastChatCloseClick > 0;
+      } else if (Date.now() - state.lastChatCloseClick > 1000) {
+        chatCloseControl.click();
+        state.lastChatCloseClick = Date.now();
+
+        window.setTimeout(() => {
+          if (!findKickChatCloseControl()) {
+            state.chatClosed = true;
+          }
+        }, 250);
       }
     }
 
