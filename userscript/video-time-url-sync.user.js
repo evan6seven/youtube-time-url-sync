@@ -128,28 +128,6 @@
     return null;
   };
 
-  const getVisibleKickChatReplayHeader = () => {
-    const candidates = document.querySelectorAll("h1, h2, h3, h4, [role='heading'], div, span");
-
-    for (const candidate of candidates) {
-      if (candidate.textContent?.trim() !== "Chat Replay") continue;
-
-      const rect = candidate.getBoundingClientRect();
-      const style = window.getComputedStyle(candidate);
-      if (
-        rect.width > 0 &&
-        rect.height > 0 &&
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        Number(style.opacity) !== 0
-      ) {
-        return candidate;
-      }
-    }
-
-    return null;
-  };
-
   const getKickChatStateRoot = () => {
     const chatRoom = document.querySelector("#channel-chatroom");
     const chatStateRoot = chatRoom?.closest?.("[data-chat]");
@@ -161,41 +139,16 @@
   const getKickChatSignals = () => {
     const chatStateRoot = getKickChatStateRoot();
     const dataChat = chatStateRoot?.getAttribute("data-chat") ?? null;
-    const visibleHeader = getVisibleKickChatReplayHeader();
 
     return {
       chatStateRoot,
       dataChat,
-      isOpen: dataChat === null ? Boolean(visibleHeader) : dataChat === "true",
-      visibleHeader,
+      isOpen: dataChat === "true",
     };
   };
 
-  const findKickChatCloseControlNearHeader = () => {
-    const header = getVisibleKickChatReplayHeader();
-    if (!header) return null;
-
-    const rect = header.getBoundingClientRect();
-    const y = rect.top + rect.height / 2;
-    const xOffsets = [24, 48, 72, 96, 120, 144];
-
-    for (const offset of xOffsets) {
-      const x = rect.left - offset;
-      if (x < 0) continue;
-
-      const elements = document.elementsFromPoint(x, y);
-      for (const element of elements) {
-        const control = element.closest?.('button, [role="button"]');
-        if (!control || control.textContent?.trim() === "Chat") continue;
-        return control;
-      }
-    }
-
-    return null;
-  };
-
   const findKickChatCloseControlForOpenSidebar = () => {
-    return findKickChatCloseControl() ?? findKickChatCloseControlNearHeader();
+    return findKickChatCloseControl();
   };
 
   const clickKickVolumeControl = (video) => {
@@ -240,25 +193,24 @@
 
     if (!state.chatClosed) {
       const chatSignals = getKickChatSignals();
-      if (!chatSignals.isOpen) {
+      if (chatSignals.dataChat === null) {
+        log("Kick chat data-chat state not found");
+      } else if (!chatSignals.isOpen) {
         state.chatClosed = true;
         log("Kick chat sidebar already closed", {
           dataChat: chatSignals.dataChat,
-          visibleHeader: Boolean(chatSignals.visibleHeader),
         });
       } else if (Date.now() - state.lastChatCloseClick > 1000) {
         const chatCloseControl = findKickChatCloseControlForOpenSidebar();
         if (!chatCloseControl) {
           log("Kick chat sidebar open, but close control not found", {
             dataChat: chatSignals.dataChat,
-            visibleHeader: Boolean(chatSignals.visibleHeader),
           });
         } else {
           chatCloseControl.click();
           state.lastChatCloseClick = Date.now();
           log("clicked Kick chat close control", {
             dataChat: chatSignals.dataChat,
-            visibleHeader: Boolean(chatSignals.visibleHeader),
           });
 
           window.setTimeout(() => {
@@ -267,12 +219,10 @@
               state.chatClosed = true;
               log("Kick chat sidebar closed", {
                 dataChat: updatedChatSignals.dataChat,
-                visibleHeader: Boolean(updatedChatSignals.visibleHeader),
               });
             } else {
               log("Kick chat sidebar still open after close click", {
                 dataChat: updatedChatSignals.dataChat,
-                visibleHeader: Boolean(updatedChatSignals.visibleHeader),
               });
             }
           }, 500);
