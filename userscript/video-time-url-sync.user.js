@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.0
+// @version      1.2.1
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -125,6 +125,16 @@
     return null;
   };
 
+  const isKickChatSidebarOpen = () => {
+    const headings = document.querySelectorAll("h1, h2, h3, h4, [role='heading']");
+
+    for (const heading of headings) {
+      if (heading.textContent?.trim() === "Chat Replay") return true;
+    }
+
+    return false;
+  };
+
   const clickKickVolumeControl = (video) => {
     const rect = video.getBoundingClientRect();
     if (rect.width <= 0 || rect.height <= 0) return false;
@@ -165,6 +175,11 @@
     }
 
     if (!state.chatClosed) {
+      if (!isKickChatSidebarOpen()) {
+        state.chatClosed = true;
+        return;
+      }
+
       const chatCloseControl = findKickChatCloseControl();
       if (!chatCloseControl) {
         state.chatClosed = state.lastChatCloseClick > 0;
@@ -173,7 +188,7 @@
         state.lastChatCloseClick = Date.now();
 
         window.setTimeout(() => {
-          if (!findKickChatCloseControl()) {
+          if (!isKickChatSidebarOpen()) {
             state.chatClosed = true;
           }
         }, 250);
