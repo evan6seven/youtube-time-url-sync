@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.2
+// @version      1.2.3
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -59,6 +59,7 @@
   const nativePushState = History.prototype.pushState;
   const nativeReplaceState = History.prototype.replaceState;
   const kickVodActions = new Map();
+  const log = (...args) => console.info("[Video Time URL Sync]", ...args);
 
   const formatSeconds = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -127,7 +128,7 @@
     return null;
   };
 
-  const isKickChatSidebarOpen = () => {
+  const getVisibleKickChatReplayHeader = () => {
     const candidates = document.querySelectorAll("h1, h2, h3, h4, [role='heading'], div, span");
 
     for (const candidate of candidates) {
@@ -142,11 +143,42 @@
         style.visibility !== "hidden" &&
         Number(style.opacity) !== 0
       ) {
-        return true;
+        return candidate;
       }
     }
 
-    return false;
+    return null;
+  };
+
+  const isKickChatSidebarOpen = () => Boolean(getVisibleKickChatReplayHeader());
+
+  const findKickChatCloseControlNearHeader = () => {
+    const header = getVisibleKickChatReplayHeader();
+    if (!header) return null;
+
+    const rect = header.getBoundingClientRect();
+    const y = rect.top + rect.height / 2;
+    const xOffsets = [24, 48, 72, 96, 120, 144];
+
+    for (const offset of xOffsets) {
+      const x = rect.left - offset;
+      if (x < 0) continue;
+
+      const elements = document.elementsFromPoint(x, y);
+      for (const element of elements) {
+        const control = element.closest?.('button, [role="button"]');
+        if (!control || control.textContent?.trim() === "Chat") continue;
+        return control;
+      }
+    }
+
+    return null;
+  };
+
+  const findKickChatCloseControlForOpenSidebar = () => {
+    if (!isKickChatSidebarOpen()) return null;
+
+    return findKickChatCloseControl() ?? findKickChatCloseControlNearHeader();
   };
 
   const clickKickVolumeControl = (video) => {
@@ -185,27 +217,32 @@
     if (video?.muted && Date.now() - state.lastUnmuteClick > 1000) {
       if (clickKickVolumeControl(video)) {
         state.lastUnmuteClick = Date.now();
+        log("clicked Kick volume control");
       }
     }
 
     if (!state.chatClosed) {
       if (!isKickChatSidebarOpen()) {
         state.chatClosed = true;
-        return;
-      }
-
-      const chatCloseControl = findKickChatCloseControl();
-      if (!chatCloseControl) {
-        state.chatClosed = state.lastChatCloseClick > 0;
+        log("Kick chat sidebar already closed");
       } else if (Date.now() - state.lastChatCloseClick > 1000) {
-        chatCloseControl.click();
-        state.lastChatCloseClick = Date.now();
+        const chatCloseControl = findKickChatCloseControlForOpenSidebar();
+        if (!chatCloseControl) {
+          log("Kick chat sidebar open, but close control not found");
+        } else {
+          chatCloseControl.click();
+          state.lastChatCloseClick = Date.now();
+          log("clicked Kick chat close control");
 
-        window.setTimeout(() => {
-          if (!isKickChatSidebarOpen()) {
-            state.chatClosed = true;
-          }
-        }, 250);
+          window.setTimeout(() => {
+            if (!isKickChatSidebarOpen()) {
+              state.chatClosed = true;
+              log("Kick chat sidebar closed");
+            } else {
+              log("Kick chat sidebar still open after close click");
+            }
+          }, 500);
+        }
       }
     }
 
@@ -214,6 +251,7 @@
       if (theaterModeButton instanceof HTMLElement) {
         theaterModeButton.click();
         state.theaterMode = true;
+        log("clicked Kick theater mode control");
       }
     }
   };
