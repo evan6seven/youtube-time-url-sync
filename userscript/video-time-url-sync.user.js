@@ -1,13 +1,16 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.6
+// @version      1.2.7
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
 // @match        *://*.youtube.com/*
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
+// @include      https://youtube.com/watch*
+// @include      https://www.youtube.com/watch*
+// @include      https://m.youtube.com/watch*
 // @match        *://kick.com/*
 // @match        *://*.kick.com/*
 // @run-at       document-idle
@@ -62,6 +65,11 @@
   const nativeReplaceState = History.prototype.replaceState;
   const kickVodActions = new Map();
   const log = (...args) => console.info("[Video Time URL Sync]", ...args);
+  log("loaded", {
+    href: window.location.href,
+    hostname: window.location.hostname,
+    pathname: window.location.pathname,
+  });
   const pageInteractionDelay = () => 2000 + Math.floor(Math.random() * 2001);
 
   const formatSeconds = (seconds) => {
