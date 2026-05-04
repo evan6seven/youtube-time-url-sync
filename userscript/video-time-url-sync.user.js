@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.8
+// @version      1.2.9
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -317,10 +317,19 @@
 
     const widget = document.createElement("div");
     widget.id = "video-time-url-sync";
-    widget.innerHTML = `
-      <button type="button" class="vtus-button" aria-label="Sync URL time" title="Sync URL time">↻</button>
-      <span class="vtus-display" aria-live="polite"></span>
-    `;
+
+    const syncButton = document.createElement("button");
+    syncButton.type = "button";
+    syncButton.className = "vtus-button";
+    syncButton.setAttribute("aria-label", "Sync URL time");
+    syncButton.title = "Sync URL time";
+    syncButton.textContent = "↻";
+
+    const timeDisplay = document.createElement("span");
+    timeDisplay.className = "vtus-display";
+    timeDisplay.setAttribute("aria-live", "polite");
+
+    widget.append(syncButton, timeDisplay);
 
     const style = document.createElement("style");
     style.id = "video-time-url-sync-style";
