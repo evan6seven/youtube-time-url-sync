@@ -1,11 +1,13 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.5
+// @version      1.2.6
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
 // @match        *://*.youtube.com/*
+// @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
 // @match        *://kick.com/*
 // @match        *://*.kick.com/*
 // @run-at       document-idle
@@ -60,6 +62,7 @@
   const nativeReplaceState = History.prototype.replaceState;
   const kickVodActions = new Map();
   const log = (...args) => console.info("[Video Time URL Sync]", ...args);
+  const pageInteractionDelay = () => 2000 + Math.floor(Math.random() * 2001);
 
   const formatSeconds = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -109,6 +112,9 @@
       chatClosed: false,
       lastChatCloseClick: 0,
       lastUnmuteClick: 0,
+      pendingChatClose: false,
+      pendingTheaterMode: false,
+      pendingUnmute: false,
       theaterMode: false,
     };
     kickVodActions.set(key, state);
@@ -184,11 +190,19 @@
     const state = getKickVodActionState();
     const video = getVideoElement();
 
-    if (video?.muted && Date.now() - state.lastUnmuteClick > 1000) {
-      if (clickKickVolumeControl(video)) {
-        state.lastUnmuteClick = Date.now();
-        log("clicked Kick volume control");
-      }
+    if (video?.muted && !state.pendingUnmute && Date.now() - state.lastUnmuteClick > 1000) {
+      state.pendingUnmute = true;
+      const delay = pageInteractionDelay();
+      log("scheduled Kick volume control click", { delay });
+
+      window.setTimeout(() => {
+        state.pendingUnmute = false;
+        const delayedVideo = getVideoElement();
+        if (delayedVideo?.muted && clickKickVolumeControl(delayedVideo)) {
+          state.lastUnmuteClick = Date.now();
+          log("clicked Kick volume control");
+        }
+      }, delay);
     }
 
     if (!state.chatClosed) {
@@ -200,42 +214,81 @@
         log("Kick chat sidebar already closed", {
           dataChat: chatSignals.dataChat,
         });
-      } else if (Date.now() - state.lastChatCloseClick > 1000) {
+      } else if (!state.pendingChatClose && Date.now() - state.lastChatCloseClick > 1000) {
         const chatCloseControl = findKickChatCloseControlForOpenSidebar();
         if (!chatCloseControl) {
           log("Kick chat sidebar open, but close control not found", {
             dataChat: chatSignals.dataChat,
           });
         } else {
-          chatCloseControl.click();
-          state.lastChatCloseClick = Date.now();
-          log("clicked Kick chat close control", {
+          state.pendingChatClose = true;
+          const delay = pageInteractionDelay();
+          log("scheduled Kick chat close control click", {
             dataChat: chatSignals.dataChat,
+            delay,
           });
 
           window.setTimeout(() => {
-            const updatedChatSignals = getKickChatSignals();
-            if (!updatedChatSignals.isOpen) {
+            state.pendingChatClose = false;
+            const delayedChatSignals = getKickChatSignals();
+            if (!delayedChatSignals.isOpen) {
               state.chatClosed = true;
-              log("Kick chat sidebar closed", {
-                dataChat: updatedChatSignals.dataChat,
+              log("Kick chat sidebar already closed before delayed click", {
+                dataChat: delayedChatSignals.dataChat,
               });
-            } else {
-              log("Kick chat sidebar still open after close click", {
-                dataChat: updatedChatSignals.dataChat,
-              });
+              return;
             }
-          }, 500);
+
+            const delayedChatCloseControl = findKickChatCloseControlForOpenSidebar();
+            if (!delayedChatCloseControl) {
+              log("Kick chat sidebar open after delay, but close control not found", {
+                dataChat: delayedChatSignals.dataChat,
+              });
+              return;
+            }
+
+            delayedChatCloseControl.click();
+            state.lastChatCloseClick = Date.now();
+            log("clicked Kick chat close control", {
+              dataChat: delayedChatSignals.dataChat,
+            });
+
+            window.setTimeout(() => {
+              const updatedChatSignals = getKickChatSignals();
+              if (!updatedChatSignals.isOpen) {
+                state.chatClosed = true;
+                log("Kick chat sidebar closed", {
+                  dataChat: updatedChatSignals.dataChat,
+                });
+              } else {
+                log("Kick chat sidebar still open after close click", {
+                  dataChat: updatedChatSignals.dataChat,
+                });
+              }
+            }, 500);
+          }, delay);
         }
       }
     }
 
-    if (!state.theaterMode) {
+    if (!state.theaterMode && !state.pendingTheaterMode) {
       const theaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
       if (theaterModeButton instanceof HTMLElement) {
-        theaterModeButton.click();
-        state.theaterMode = true;
-        log("clicked Kick theater mode control");
+        state.pendingTheaterMode = true;
+        const delay = pageInteractionDelay();
+        log("scheduled Kick theater mode control click", { delay });
+
+        window.setTimeout(() => {
+          state.pendingTheaterMode = false;
+          if (state.theaterMode) return;
+
+          const delayedTheaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
+          if (delayedTheaterModeButton instanceof HTMLElement) {
+            delayedTheaterModeButton.click();
+            state.theaterMode = true;
+            log("clicked Kick theater mode control");
+          }
+        }, delay);
       }
     }
   };
@@ -301,6 +354,10 @@
     `;
 
     document.documentElement.append(style, widget);
+    log("created widget", {
+      hostname: window.location.hostname,
+      pathname: window.location.pathname,
+    });
     return widget;
   };
 
@@ -315,6 +372,12 @@
     widget.hidden = !syncable;
     button.disabled = !syncable;
     display.textContent = rawTime === null ? "none" : `${rawTime} (${formatSeconds(seconds)})`;
+    log("updated widget", {
+      hidden: widget.hidden,
+      hostname: window.location.hostname,
+      pathname: window.location.pathname,
+      syncable,
+    });
   };
 
   button.addEventListener("click", () => {
@@ -346,6 +409,7 @@
   });
 
   window.addEventListener("popstate", handleUrlChange);
+  window.addEventListener("load", updateWidget);
   window.addEventListener("video-time-url-sync:urlchange", handleUrlChange);
   window.addEventListener("yt-navigate-finish", handleUrlChange);
 
