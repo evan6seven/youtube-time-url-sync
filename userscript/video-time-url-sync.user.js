@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.7
+// @version      1.2.8
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -70,6 +70,16 @@
     hostname: window.location.hostname,
     pathname: window.location.pathname,
   });
+
+  if (window.top !== window.self) {
+    log("skipping frame", {
+      href: window.location.href,
+      hostname: window.location.hostname,
+      pathname: window.location.pathname,
+    });
+    return;
+  }
+
   const pageInteractionDelay = () => 2000 + Math.floor(Math.random() * 2001);
 
   const formatSeconds = (seconds) => {
@@ -302,6 +312,9 @@
   };
 
   const createWidget = () => {
+    document.getElementById("video-time-url-sync")?.remove();
+    document.getElementById("video-time-url-sync-style")?.remove();
+
     const widget = document.createElement("div");
     widget.id = "video-time-url-sync";
     widget.innerHTML = `
@@ -310,6 +323,7 @@
     `;
 
     const style = document.createElement("style");
+    style.id = "video-time-url-sync-style";
     style.textContent = `
       #video-time-url-sync {
         position: fixed;
@@ -361,19 +375,48 @@
       }
     `;
 
-    document.documentElement.append(style, widget);
+    const container = document.body || document.documentElement;
+    container.append(style, widget);
     log("created widget", {
       hostname: window.location.hostname,
       pathname: window.location.pathname,
+      parent: container.tagName,
     });
     return widget;
   };
 
-  const widget = createWidget();
-  const button = widget.querySelector(".vtus-button");
-  const display = widget.querySelector(".vtus-display");
+  let widget;
+  let button;
+  let display;
+
+  const ensureWidget = () => {
+    if (widget?.isConnected && button?.isConnected && display?.isConnected) return true;
+
+    widget = createWidget();
+    button = widget.querySelector(".vtus-button");
+    display = widget.querySelector(".vtus-display");
+
+    if (!(button instanceof HTMLButtonElement) || !(display instanceof HTMLElement)) {
+      return false;
+    }
+
+    button.addEventListener("click", () => {
+      syncTimeToUrl();
+      updateWidget();
+    });
+
+    return true;
+  };
 
   const updateWidget = () => {
+    if (!ensureWidget()) {
+      log("widget controls missing", {
+        hostname: window.location.hostname,
+        pathname: window.location.pathname,
+      });
+      return;
+    }
+
     const syncable = isSyncablePage();
     const { rawTime, seconds } = getUrlTime();
 
@@ -387,11 +430,6 @@
       syncable,
     });
   };
-
-  button.addEventListener("click", () => {
-    syncTimeToUrl();
-    updateWidget();
-  });
 
   const handleUrlChange = () => {
     updateWidget();
@@ -421,6 +459,10 @@
   window.addEventListener("video-time-url-sync:urlchange", handleUrlChange);
   window.addEventListener("yt-navigate-finish", handleUrlChange);
 
-  updateWidget();
-  clickKickVodPlayerControls();
+  try {
+    updateWidget();
+    clickKickVodPlayerControls();
+  } catch (error) {
+    console.error("[Video Time URL Sync]", "startup failed", error);
+  }
 })();
