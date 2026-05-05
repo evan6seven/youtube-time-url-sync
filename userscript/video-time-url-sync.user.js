@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.9
+// @version      1.2.10
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -352,6 +352,11 @@
         font: 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
+      #video-time-url-sync.vtus-kick {
+        top: 16px;
+        bottom: auto;
+      }
+
       #video-time-url-sync[hidden] {
         display: none;
       }
@@ -428,13 +433,16 @@
 
     const syncable = isSyncablePage();
     const { rawTime, seconds } = getUrlTime();
+    const isKickPage = isKickHost(window.location.hostname);
 
+    widget.classList.toggle("vtus-kick", isKickPage);
     widget.hidden = !syncable;
     button.disabled = !syncable;
     display.textContent = rawTime === null ? "none" : `${rawTime} (${formatSeconds(seconds)})`;
     log("updated widget", {
       hidden: widget.hidden,
       hostname: window.location.hostname,
+      isKickPage,
       pathname: window.location.pathname,
       syncable,
     });
