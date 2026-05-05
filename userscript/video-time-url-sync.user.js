@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.10
+// @version      1.2.11
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -343,10 +343,10 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px;
-        color: #f8fafc;
+        padding: 0;
+        color: #cbd5e1;
         background: rgba(15, 23, 42, 0.92);
-        border: 1px solid rgba(148, 163, 184, 0.45);
+        border: 0;
         border-radius: 8px;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
         font: 12px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -365,8 +365,8 @@
         width: 30px;
         min-height: 30px;
         padding: 0;
-        color: #0f172a;
-        background: #f8fafc;
+        color: #cbd5e1;
+        background: transparent;
         border: 0;
         border-radius: 6px;
         font: 20px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -375,7 +375,7 @@
       }
 
       #video-time-url-sync .vtus-button:hover {
-        background: #e2e8f0;
+        background: rgba(248, 250, 252, 0.12);
       }
 
       #video-time-url-sync .vtus-button:disabled {
