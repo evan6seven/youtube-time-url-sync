@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.21
+// @version      1.2.22
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -148,7 +148,6 @@
     const state = youTubeLiveChatActions.get(key) ?? {
       attempts: 0,
       chatClosed: false,
-      fallbackAttempted: false,
       gaveUp: false,
       pendingChatClose: false,
       staleStyleRemoved: false,
@@ -162,30 +161,6 @@
 
     document.getElementById("video-time-url-sync-youtube-chat-style")?.remove();
     state.staleStyleRemoved = true;
-  };
-
-  const queryDeepSelector = (selector, root = document) => {
-    const directMatch = root.querySelector?.(selector);
-    if (directMatch) return directMatch;
-
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
-    let node = walker.nextNode();
-
-    while (node) {
-      if (node.shadowRoot) {
-        const shadowMatch = queryDeepSelector(selector, node.shadowRoot);
-        if (shadowMatch) return shadowMatch;
-      }
-
-      node = walker.nextNode();
-    }
-
-    return null;
-  };
-
-  const findYouTubeLiveChatCloseButton = () => {
-    const closeButton = queryDeepSelector("#close-button button, #close-button");
-    return closeButton instanceof HTMLElement ? closeButton : null;
   };
 
   const getYouTubeLiveChatPanelRect = () => {
@@ -238,70 +213,52 @@
     if (state.chatClosed || state.pendingChatClose || state.attempts >= 20) return;
 
     state.pendingChatClose = true;
-    log("scheduled YouTube live chat close button lookup", {
+    log("scheduled YouTube live chat close point click", {
       delay: 1000,
-      selector: "#close-button button, #close-button",
     });
 
     window.setTimeout(() => {
       state.pendingChatClose = false;
-      clickYouTubeLiveChatCloseButton();
+      clickYouTubeLiveChatClosePointWithRetry();
     }, 1000);
   };
 
-  const clickYouTubeLiveChatCloseButton = () => {
+  const clickYouTubeLiveChatClosePointWithRetry = () => {
     if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
 
     const state = getYouTubeLiveChatActionState();
     if (state.chatClosed) return;
     if (state.attempts >= 20) {
-      if (!state.fallbackAttempted) {
-        state.fallbackAttempted = true;
-        if (clickYouTubeLiveChatClosePoint()) {
-          state.chatClosed = true;
-          state.pendingChatClose = false;
-          log("clicked YouTube live chat close point fallback");
-          return;
-        }
-
-        log("YouTube live chat close point fallback did not find a target");
-      }
-
       if (!state.gaveUp) {
         state.gaveUp = true;
-        log("gave up looking for YouTube live chat close button", {
+        log("gave up trying YouTube live chat close point", {
           attempts: state.attempts,
-          selector: "#close-button button, #close-button",
         });
       }
       return;
     }
 
-    const closeButton = findYouTubeLiveChatCloseButton();
     state.attempts += 1;
-    log("looked for YouTube live chat close button", {
+    log("attempting YouTube live chat close point", {
       attempt: state.attempts,
-      found: Boolean(closeButton),
-      selector: "#close-button button, #close-button",
     });
 
-    if (closeButton) {
-      closeButton.click();
+    if (clickYouTubeLiveChatClosePoint()) {
       state.chatClosed = true;
       state.pendingChatClose = false;
-      log("clicked YouTube live chat close button");
+      log("clicked YouTube live chat close point");
       return;
     }
 
     state.pendingChatClose = true;
-    log("YouTube live chat close button not found; retrying", {
+    log("YouTube live chat close point did not find a button; retrying", {
       attempt: state.attempts,
       delay: 1000,
     });
 
     window.setTimeout(() => {
       state.pendingChatClose = false;
-      clickYouTubeLiveChatCloseButton();
+      clickYouTubeLiveChatClosePointWithRetry();
     }, 1000);
   };
 
