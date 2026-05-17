@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.19
+// @version      1.2.20
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -163,8 +163,27 @@
     state.staleStyleRemoved = true;
   };
 
+  const queryDeepSelector = (selector, root = document) => {
+    const directMatch = root.querySelector?.(selector);
+    if (directMatch) return directMatch;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    let node = walker.nextNode();
+
+    while (node) {
+      if (node.shadowRoot) {
+        const shadowMatch = queryDeepSelector(selector, node.shadowRoot);
+        if (shadowMatch) return shadowMatch;
+      }
+
+      node = walker.nextNode();
+    }
+
+    return null;
+  };
+
   const findYouTubeLiveChatCloseButton = () => {
-    const closeButton = document.querySelector("#close-button button, #close-button");
+    const closeButton = queryDeepSelector("#close-button button, #close-button");
     return closeButton instanceof HTMLElement ? closeButton : null;
   };
 
