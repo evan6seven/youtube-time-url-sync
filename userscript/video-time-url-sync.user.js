@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.17
+// @version      1.2.18
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -148,6 +148,7 @@
     const state = youTubeLiveChatActions.get(key) ?? {
       attempts: 0,
       chatClosed: false,
+      gaveUp: false,
       pendingChatClose: false,
       staleStyleRemoved: false,
     };
@@ -176,6 +177,10 @@
     if (state.chatClosed || state.pendingChatClose || state.attempts >= 20) return;
 
     state.pendingChatClose = true;
+    log("scheduled YouTube live chat close button lookup", {
+      delay: 1000,
+      selector: "#close-button > yt-button-renderer > yt-button-shape > button",
+    });
 
     window.setTimeout(() => {
       state.pendingChatClose = false;
@@ -187,10 +192,25 @@
     if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
 
     const state = getYouTubeLiveChatActionState();
-    if (state.chatClosed || state.attempts >= 20) return;
+    if (state.chatClosed) return;
+    if (state.attempts >= 20) {
+      if (!state.gaveUp) {
+        state.gaveUp = true;
+        log("gave up looking for YouTube live chat close button", {
+          attempts: state.attempts,
+          selector: "#close-button > yt-button-renderer > yt-button-shape > button",
+        });
+      }
+      return;
+    }
 
     const closeButton = findYouTubeLiveChatCloseButton();
     state.attempts += 1;
+    log("looked for YouTube live chat close button", {
+      attempt: state.attempts,
+      found: Boolean(closeButton),
+      selector: "#close-button > yt-button-renderer > yt-button-shape > button",
+    });
 
     if (closeButton) {
       closeButton.click();
@@ -201,6 +221,10 @@
     }
 
     state.pendingChatClose = true;
+    log("YouTube live chat close button not found; retrying", {
+      attempt: state.attempts,
+      delay: 1000,
+    });
 
     window.setTimeout(() => {
       state.pendingChatClose = false;
