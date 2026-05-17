@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.13
+// @version      1.2.14
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -152,25 +152,24 @@
     return state;
   };
 
-  const getYouTubeLiveChatContainer = () => {
-    return document.querySelector("ytd-watch-flexy #chat-container");
-  };
-
   const ensureYouTubeLiveChatStyle = () => {
     const styleId = "video-time-url-sync-youtube-chat-style";
+    const styleText = "ytd-watch-flexy #chat-container { display: none !important; }";
     let style = document.getElementById(styleId);
 
-    if (!(style instanceof HTMLStyleElement)) {
-      style = document.createElement("style");
-      style.id = styleId;
-      (document.head || document.documentElement).append(style);
+    if (style instanceof HTMLStyleElement) {
+      if (style.textContent !== styleText) {
+        style.textContent = styleText;
+      }
+      return;
     }
 
-    style.textContent = `
-      ytd-watch-flexy #chat-container {
-        display: none !important;
-      }
-    `;
+    if (style) return;
+
+    style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = styleText;
+    (document.head || document.documentElement).append(style);
   };
 
   const hideYouTubeLiveChat = () => {
@@ -178,12 +177,6 @@
 
     const state = getYouTubeLiveChatActionState();
     ensureYouTubeLiveChatStyle();
-
-    const chatContainer = getYouTubeLiveChatContainer();
-    if (chatContainer instanceof HTMLElement) {
-      chatContainer.style.setProperty("display", "none", "important");
-      chatContainer.setAttribute("data-video-time-url-sync-hidden", "true");
-    }
 
     if (!state.chatClosed) {
       state.chatClosed = true;
