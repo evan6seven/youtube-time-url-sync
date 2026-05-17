@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.22
+// @version      1.2.23
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -11,6 +11,7 @@
 // @include      https://youtube.com/watch*
 // @include      https://www.youtube.com/watch*
 // @include      https://m.youtube.com/watch*
+// @include      https://www.youtube.com/live_chat*
 // @match        *://kick.com/*
 // @match        *://*.kick.com/*
 // @run-at       document-idle
@@ -37,6 +38,9 @@
 
   const isYouTubeLiveChatPage = (pathname) =>
     pathname === "/watch" || /^\/live\/[^/]+\/?$/.test(pathname);
+
+  const isYouTubeLiveChatFrame = () =>
+    isYouTubeHost(window.location.hostname) && window.location.pathname === "/live_chat";
 
   const isSyncablePage = () => {
     const { hostname, pathname } = window.location;
@@ -75,7 +79,48 @@
     pathname: window.location.pathname,
   });
 
+  const findYouTubeLiveChatFrameCloseButton = () => {
+    const closeButtonContainer = document.getElementById("close-button");
+    if (!(closeButtonContainer instanceof HTMLElement)) return null;
+
+    const closeButton = closeButtonContainer.querySelector("button") ?? closeButtonContainer;
+    if (!(closeButton instanceof HTMLElement)) return null;
+
+    const rect = closeButton.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return closeButton;
+
+    return null;
+  };
+
+  const closeYouTubeLiveChatFrame = (attempt = 1) => {
+    const closeButton = findYouTubeLiveChatFrameCloseButton();
+
+    log("looked for YouTube live chat frame close button", {
+      attempt,
+      found: Boolean(closeButton),
+    });
+
+    if (closeButton) {
+      closeButton.click();
+      log("clicked YouTube live chat frame close button");
+      return;
+    }
+
+    if (attempt >= 20) {
+      log("gave up looking for YouTube live chat frame close button", { attempts: attempt });
+      return;
+    }
+
+    window.setTimeout(() => closeYouTubeLiveChatFrame(attempt + 1), 1000);
+  };
+
   if (window.top !== window.self) {
+    if (isYouTubeLiveChatFrame()) {
+      log("loaded YouTube live chat frame");
+      window.setTimeout(() => closeYouTubeLiveChatFrame(), 1000);
+      return;
+    }
+
     log("skipping frame", {
       href: window.location.href,
       hostname: window.location.hostname,
@@ -146,10 +191,7 @@
   const getYouTubeLiveChatActionState = () => {
     const key = `${window.location.pathname}?${new URLSearchParams(window.location.search).get("v") ?? ""}`;
     const state = youTubeLiveChatActions.get(key) ?? {
-      attempts: 0,
-      chatClosed: false,
-      gaveUp: false,
-      pendingChatClose: false,
+      frameCloseLogged: false,
       staleStyleRemoved: false,
     };
     youTubeLiveChatActions.set(key, state);
@@ -163,103 +205,16 @@
     state.staleStyleRemoved = true;
   };
 
-  const getYouTubeLiveChatPanelRect = () => {
-    const panel = document.querySelector("ytd-live-chat-frame#chat, #chat-container");
-    if (!(panel instanceof HTMLElement)) return null;
-
-    const rect = panel.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-
-    return rect;
-  };
-
-  const clickYouTubeLiveChatClosePoint = () => {
-    const rect = getYouTubeLiveChatPanelRect();
-    if (!rect) return false;
-
-    const clientX = rect.right - 24;
-    const clientY = rect.top + 24;
-    const target = document.elementFromPoint(clientX, clientY);
-    const clickTarget = target?.closest?.("button, [role='button']");
-
-    log("trying YouTube live chat close point", {
-      clientX: Math.round(clientX),
-      clientY: Math.round(clientY),
-      panel: {
-        height: Math.round(rect.height),
-        width: Math.round(rect.width),
-        x: Math.round(rect.x),
-        y: Math.round(rect.y),
-      },
-      target: clickTarget instanceof Element ? clickTarget.tagName : null,
-      targetId: clickTarget instanceof Element ? clickTarget.id : null,
-    });
-
-    if (!(clickTarget instanceof HTMLElement)) return false;
-
-    clickTarget.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX, clientY }));
-    clickTarget.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX, clientY }));
-    clickTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX, clientY }));
-    clickTarget.click();
-    return true;
-  };
-
   const closeYouTubeLiveChat = () => {
     if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
 
     const state = getYouTubeLiveChatActionState();
     removeStaleYouTubeLiveChatStyle(state);
 
-    if (state.chatClosed || state.pendingChatClose || state.attempts >= 20) return;
-
-    state.pendingChatClose = true;
-    log("scheduled YouTube live chat close point click", {
-      delay: 1000,
-    });
-
-    window.setTimeout(() => {
-      state.pendingChatClose = false;
-      clickYouTubeLiveChatClosePointWithRetry();
-    }, 1000);
-  };
-
-  const clickYouTubeLiveChatClosePointWithRetry = () => {
-    if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
-
-    const state = getYouTubeLiveChatActionState();
-    if (state.chatClosed) return;
-    if (state.attempts >= 20) {
-      if (!state.gaveUp) {
-        state.gaveUp = true;
-        log("gave up trying YouTube live chat close point", {
-          attempts: state.attempts,
-        });
-      }
-      return;
+    if (!state.frameCloseLogged) {
+      state.frameCloseLogged = true;
+      log("waiting for YouTube live chat frame to close itself");
     }
-
-    state.attempts += 1;
-    log("attempting YouTube live chat close point", {
-      attempt: state.attempts,
-    });
-
-    if (clickYouTubeLiveChatClosePoint()) {
-      state.chatClosed = true;
-      state.pendingChatClose = false;
-      log("clicked YouTube live chat close point");
-      return;
-    }
-
-    state.pendingChatClose = true;
-    log("YouTube live chat close point did not find a button; retrying", {
-      attempt: state.attempts,
-      delay: 1000,
-    });
-
-    window.setTimeout(() => {
-      state.pendingChatClose = false;
-      clickYouTubeLiveChatClosePointWithRetry();
-    }, 1000);
   };
 
   const findKickChatCloseControl = () => {
