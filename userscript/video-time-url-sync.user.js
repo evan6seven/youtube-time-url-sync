@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.12
+// @version      1.2.13
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -147,116 +147,48 @@
     const key = `${window.location.pathname}?${new URLSearchParams(window.location.search).get("v") ?? ""}`;
     const state = youTubeLiveChatActions.get(key) ?? {
       chatClosed: false,
-      lastChatCloseClick: 0,
-      pendingChatClose: false,
     };
     youTubeLiveChatActions.set(key, state);
     return state;
   };
 
-  const getYouTubeLiveChatFrame = () => {
-    return document.querySelector("ytd-live-chat-frame");
+  const getYouTubeLiveChatContainer = () => {
+    return document.querySelector("ytd-watch-flexy #chat-container");
   };
 
-  const getYouTubeLiveChatToggleLabel = () => {
-    const chatFrame = getYouTubeLiveChatFrame();
-    const showHideControl = chatFrame?.querySelector("#show-hide-button");
-    const showHideButton = showHideControl?.querySelector?.("button") ?? showHideControl;
+  const ensureYouTubeLiveChatStyle = () => {
+    const styleId = "video-time-url-sync-youtube-chat-style";
+    let style = document.getElementById(styleId);
 
-    return [
-      showHideButton?.getAttribute?.("aria-label"),
-      showHideButton?.getAttribute?.("title"),
-      showHideButton?.textContent,
-      showHideControl?.textContent,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
+    if (!(style instanceof HTMLStyleElement)) {
+      style = document.createElement("style");
+      style.id = styleId;
+      (document.head || document.documentElement).append(style);
+    }
+
+    style.textContent = `
+      ytd-watch-flexy #chat-container {
+        display: none !important;
+      }
+    `;
   };
 
-  const isYouTubeLiveChatOpen = () => {
-    const chatFrame = getYouTubeLiveChatFrame();
-    if (!chatFrame) return false;
-
-    if (chatFrame.hasAttribute("collapsed")) return false;
-
-    const toggleLabel = getYouTubeLiveChatToggleLabel().toLowerCase();
-    if (/\b(show|open) chat\b/.test(toggleLabel)) return false;
-
-    const rect = chatFrame.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  };
-
-  const findYouTubeLiveChatCloseControl = () => {
-    const chatFrame = getYouTubeLiveChatFrame();
-    if (!chatFrame) return null;
-
-    const hideChatButton = chatFrame.querySelector(
-      'button[aria-label="Hide chat"], button[title="Hide chat"], button[aria-label="Hide chat replay"], button[title="Hide chat replay"]',
-    );
-    if (hideChatButton instanceof HTMLElement) return hideChatButton;
-
-    const showHideControl = chatFrame.querySelector("#show-hide-button button, #show-hide-button");
-    const showHideButton = showHideControl?.closest?.("button") ?? showHideControl;
-    if (showHideButton instanceof HTMLElement) return showHideButton;
-
-    return null;
-  };
-
-  const closeYouTubeLiveChat = () => {
+  const hideYouTubeLiveChat = () => {
     if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
 
     const state = getYouTubeLiveChatActionState();
-    if (state.chatClosed) return;
+    ensureYouTubeLiveChatStyle();
 
-    const chatFrame = getYouTubeLiveChatFrame();
-    if (!chatFrame) return;
+    const chatContainer = getYouTubeLiveChatContainer();
+    if (chatContainer instanceof HTMLElement) {
+      chatContainer.style.setProperty("display", "none", "important");
+      chatContainer.setAttribute("data-video-time-url-sync-hidden", "true");
+    }
 
-    if (!isYouTubeLiveChatOpen()) {
+    if (!state.chatClosed) {
       state.chatClosed = true;
-      log("YouTube live chat already closed");
-      return;
+      log("hid YouTube live chat container");
     }
-
-    if (state.pendingChatClose || Date.now() - state.lastChatCloseClick <= 1000) return;
-
-    const chatCloseControl = findYouTubeLiveChatCloseControl();
-    if (!chatCloseControl) {
-      log("YouTube live chat open, but close control not found");
-      return;
-    }
-
-    state.pendingChatClose = true;
-    const delay = pageInteractionDelay();
-    log("scheduled YouTube live chat close control click", { delay });
-
-    window.setTimeout(() => {
-      state.pendingChatClose = false;
-      if (!isYouTubeLiveChatOpen()) {
-        state.chatClosed = true;
-        log("YouTube live chat already closed before delayed click");
-        return;
-      }
-
-      const delayedChatCloseControl = findYouTubeLiveChatCloseControl();
-      if (!delayedChatCloseControl) {
-        log("YouTube live chat open after delay, but close control not found");
-        return;
-      }
-
-      delayedChatCloseControl.click();
-      state.lastChatCloseClick = Date.now();
-      log("clicked YouTube live chat close control");
-
-      window.setTimeout(() => {
-        if (!isYouTubeLiveChatOpen()) {
-          state.chatClosed = true;
-          log("YouTube live chat closed");
-        } else {
-          log("YouTube live chat still open after close click");
-        }
-      }, 500);
-    }, delay);
   };
 
   const findKickChatCloseControl = () => {
@@ -570,7 +502,7 @@
 
   const handleUrlChange = () => {
     updateWidget();
-    closeYouTubeLiveChat();
+    hideYouTubeLiveChat();
     clickKickVodPlayerControls();
   };
 
@@ -587,7 +519,7 @@
   };
 
   const handlePageMutation = () => {
-    closeYouTubeLiveChat();
+    hideYouTubeLiveChat();
     clickKickVodPlayerControls();
   };
 
@@ -604,7 +536,7 @@
 
   try {
     updateWidget();
-    closeYouTubeLiveChat();
+    hideYouTubeLiveChat();
     clickKickVodPlayerControls();
   } catch (error) {
     console.error("[Video Time URL Sync]", "startup failed", error);
