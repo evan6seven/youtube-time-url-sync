@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.20
+// @version      1.2.21
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -148,6 +148,7 @@
     const state = youTubeLiveChatActions.get(key) ?? {
       attempts: 0,
       chatClosed: false,
+      fallbackAttempted: false,
       gaveUp: false,
       pendingChatClose: false,
       staleStyleRemoved: false,
@@ -187,6 +188,47 @@
     return closeButton instanceof HTMLElement ? closeButton : null;
   };
 
+  const getYouTubeLiveChatPanelRect = () => {
+    const panel = document.querySelector("ytd-live-chat-frame#chat, #chat-container");
+    if (!(panel instanceof HTMLElement)) return null;
+
+    const rect = panel.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+
+    return rect;
+  };
+
+  const clickYouTubeLiveChatClosePoint = () => {
+    const rect = getYouTubeLiveChatPanelRect();
+    if (!rect) return false;
+
+    const clientX = rect.right - 24;
+    const clientY = rect.top + 24;
+    const target = document.elementFromPoint(clientX, clientY);
+    const clickTarget = target?.closest?.("button, [role='button']");
+
+    log("trying YouTube live chat close point", {
+      clientX: Math.round(clientX),
+      clientY: Math.round(clientY),
+      panel: {
+        height: Math.round(rect.height),
+        width: Math.round(rect.width),
+        x: Math.round(rect.x),
+        y: Math.round(rect.y),
+      },
+      target: clickTarget instanceof Element ? clickTarget.tagName : null,
+      targetId: clickTarget instanceof Element ? clickTarget.id : null,
+    });
+
+    if (!(clickTarget instanceof HTMLElement)) return false;
+
+    clickTarget.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, clientX, clientY }));
+    clickTarget.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, clientX, clientY }));
+    clickTarget.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, clientX, clientY }));
+    clickTarget.click();
+    return true;
+  };
+
   const closeYouTubeLiveChat = () => {
     if (!isYouTubeHost(window.location.hostname) || !isYouTubeLiveChatPage(window.location.pathname)) return;
 
@@ -213,6 +255,18 @@
     const state = getYouTubeLiveChatActionState();
     if (state.chatClosed) return;
     if (state.attempts >= 20) {
+      if (!state.fallbackAttempted) {
+        state.fallbackAttempted = true;
+        if (clickYouTubeLiveChatClosePoint()) {
+          state.chatClosed = true;
+          state.pendingChatClose = false;
+          log("clicked YouTube live chat close point fallback");
+          return;
+        }
+
+        log("YouTube live chat close point fallback did not find a target");
+      }
+
       if (!state.gaveUp) {
         state.gaveUp = true;
         log("gave up looking for YouTube live chat close button", {
