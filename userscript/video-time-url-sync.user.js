@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.23
+// @version      1.2.24
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -129,7 +129,7 @@
     return;
   }
 
-  const pageInteractionDelay = () => 2000 + Math.floor(Math.random() * 2001);
+  const pageInteractionDelay = () => 1300 + Math.floor(Math.random() * 701);
 
   const formatSeconds = (seconds) => {
     if (!Number.isFinite(seconds) || seconds < 0) {
@@ -284,9 +284,11 @@
     if (!isKickHost(window.location.hostname) || !isKickVideosPath(window.location.pathname)) return;
 
     const state = getKickVodActionState();
-    const video = getVideoElement();
 
-    if (video?.muted && !state.pendingUnmute && Date.now() - state.lastUnmuteClick > 1000) {
+    if (state.pendingTheaterMode || state.pendingChatClose || state.pendingUnmute) return;
+
+    const video = getVideoElement();
+    if (video?.muted && Date.now() - state.lastUnmuteClick > 1000) {
       state.pendingUnmute = true;
       const delay = pageInteractionDelay();
       log("scheduled Kick volume control click", { delay });
@@ -298,7 +300,36 @@
           state.lastUnmuteClick = Date.now();
           log("clicked Kick volume control");
         }
+        clickKickVodPlayerControls();
       }, delay);
+      return;
+    }
+
+    if (!state.theaterMode) {
+      const theaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
+      if (theaterModeButton instanceof HTMLElement) {
+        state.pendingTheaterMode = true;
+        const delay = pageInteractionDelay();
+        log("scheduled Kick theater mode control click", { delay });
+
+        window.setTimeout(() => {
+          state.pendingTheaterMode = false;
+          if (state.theaterMode) {
+            clickKickVodPlayerControls();
+            return;
+          }
+
+          const delayedTheaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
+          if (delayedTheaterModeButton instanceof HTMLElement) {
+            delayedTheaterModeButton.click();
+            state.theaterMode = true;
+            log("clicked Kick theater mode control");
+          }
+
+          clickKickVodPlayerControls();
+        }, delay);
+        return;
+      }
     }
 
     if (!state.chatClosed) {
@@ -310,7 +341,7 @@
         log("Kick chat sidebar already closed", {
           dataChat: chatSignals.dataChat,
         });
-      } else if (!state.pendingChatClose && Date.now() - state.lastChatCloseClick > 1000) {
+      } else if (Date.now() - state.lastChatCloseClick > 1000) {
         const chatCloseControl = findKickChatCloseControlForOpenSidebar();
         if (!chatCloseControl) {
           log("Kick chat sidebar open, but close control not found", {
@@ -332,6 +363,7 @@
               log("Kick chat sidebar already closed before delayed click", {
                 dataChat: delayedChatSignals.dataChat,
               });
+              clickKickVodPlayerControls();
               return;
             }
 
@@ -340,6 +372,7 @@
               log("Kick chat sidebar open after delay, but close control not found", {
                 dataChat: delayedChatSignals.dataChat,
               });
+              clickKickVodPlayerControls();
               return;
             }
 
@@ -361,30 +394,11 @@
                   dataChat: updatedChatSignals.dataChat,
                 });
               }
+              clickKickVodPlayerControls();
             }, 500);
           }, delay);
+          return;
         }
-      }
-    }
-
-    if (!state.theaterMode && !state.pendingTheaterMode) {
-      const theaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
-      if (theaterModeButton instanceof HTMLElement) {
-        state.pendingTheaterMode = true;
-        const delay = pageInteractionDelay();
-        log("scheduled Kick theater mode control click", { delay });
-
-        window.setTimeout(() => {
-          state.pendingTheaterMode = false;
-          if (state.theaterMode) return;
-
-          const delayedTheaterModeButton = document.querySelector('[data-testid="video-player-theatre-mode"]');
-          if (delayedTheaterModeButton instanceof HTMLElement) {
-            delayedTheaterModeButton.click();
-            state.theaterMode = true;
-            log("clicked Kick theater mode control");
-          }
-        }, delay);
       }
     }
   };
