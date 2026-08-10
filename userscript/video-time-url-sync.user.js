@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.24
+// @version      1.2.25
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -72,6 +72,8 @@
   const nativeReplaceState = History.prototype.replaceState;
   const kickVodActions = new Map();
   const youTubeLiveChatActions = new Map();
+  const youTubeLiveChatCloseRequestType = "video-time-url-sync:youtube-chat-close-request";
+  const youTubeLiveChatCloseResponseType = "video-time-url-sync:youtube-chat-close-response";
   const log = (...args) => console.info("[Video Time URL Sync]", ...args);
   log("loaded", {
     href: window.location.href,
@@ -114,10 +116,61 @@
     window.setTimeout(() => closeYouTubeLiveChatFrame(attempt + 1), 1000);
   };
 
+  const requestYouTubeLiveChatFrameClose = () => {
+    const requestId = `${Date.now()}-${Math.random()}`;
+    const videoId = new URLSearchParams(window.location.search).get("v");
+    let settled = false;
+
+    const handleResponse = (event) => {
+      if (event.source !== window.top || !event.data || event.data.type !== youTubeLiveChatCloseResponseType) {
+        return;
+      }
+
+      if (event.data.requestId !== requestId) return;
+
+      try {
+        if (!isYouTubeHost(new URL(event.origin).hostname)) return;
+      } catch {
+        return;
+      }
+
+      settled = true;
+      window.removeEventListener("message", handleResponse);
+
+      if (event.data.shouldClose) {
+        log("received permission to close the initial YouTube live chat frame");
+        window.setTimeout(() => closeYouTubeLiveChatFrame(), 1000);
+      } else {
+        log("keeping manually reopened YouTube live chat open");
+      }
+    };
+
+    const sendRequest = (attempt = 1) => {
+      if (settled) return;
+
+      window.top.postMessage({
+        type: youTubeLiveChatCloseRequestType,
+        requestId,
+        videoId,
+      }, "*");
+
+      if (attempt >= 20) {
+        window.removeEventListener("message", handleResponse);
+        log("gave up asking the YouTube page whether to close live chat", { attempts: attempt });
+        return;
+      }
+
+      window.setTimeout(() => sendRequest(attempt + 1), 500);
+    };
+
+    window.addEventListener("message", handleResponse);
+    sendRequest();
+  };
+
   if (window.top !== window.self) {
     if (isYouTubeLiveChatFrame()) {
       log("loaded YouTube live chat frame");
-      window.setTimeout(() => closeYouTubeLiveChatFrame(), 1000);
+      requestYouTubeLiveChatFrameClose();
       return;
     }
 
@@ -191,12 +244,44 @@
   const getYouTubeLiveChatActionState = () => {
     const key = `${window.location.pathname}?${new URLSearchParams(window.location.search).get("v") ?? ""}`;
     const state = youTubeLiveChatActions.get(key) ?? {
+      approvedFrameCloseRequestId: null,
+      frameCloseRequested: false,
       frameCloseLogged: false,
       staleStyleRemoved: false,
     };
     youTubeLiveChatActions.set(key, state);
     return state;
   };
+
+  const handleYouTubeLiveChatCloseRequest = (event) => {
+    if (!event.data || event.data.type !== youTubeLiveChatCloseRequestType) return;
+
+    try {
+      if (!isYouTubeHost(new URL(event.origin).hostname)) return;
+    } catch {
+      return;
+    }
+
+    const currentVideoId = new URLSearchParams(window.location.search).get("v")
+      ?? window.location.pathname.match(/^\/live\/([^/]+)\/?$/)?.[1]
+      ?? null;
+
+    if (!currentVideoId || event.data.videoId !== currentVideoId) return;
+
+    const state = getYouTubeLiveChatActionState();
+    if (!state.frameCloseRequested) {
+      state.frameCloseRequested = true;
+      state.approvedFrameCloseRequestId = event.data.requestId;
+    }
+
+    event.source?.postMessage({
+      type: youTubeLiveChatCloseResponseType,
+      requestId: event.data.requestId,
+      shouldClose: state.approvedFrameCloseRequestId === event.data.requestId,
+    }, event.origin);
+  };
+
+  window.addEventListener("message", handleYouTubeLiveChatCloseRequest);
 
   const removeStaleYouTubeLiveChatStyle = (state) => {
     if (state.staleStyleRemoved) return;
