@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.26
+// @version      1.2.28
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -526,7 +526,7 @@
         z-index: 2147483647;
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 4px;
         padding: 0;
         color: #cbd5e1;
         background: rgba(15, 23, 42, 0.92);
@@ -568,7 +568,6 @@
       }
 
       #video-time-url-sync .vtus-display {
-        min-width: 62px;
         white-space: nowrap;
       }
     `;
