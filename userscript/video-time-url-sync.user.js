@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Video Time URL Sync
 // @namespace    https://github.com/evan6seven/youtube-time-url-sync
-// @version      1.2.25
+// @version      1.2.26
 // @description  Adds an in-page button to sync supported video URLs' t= parameter with the current playback time.
 // @author       evfrenkel
 // @match        *://youtube.com/*
@@ -497,7 +497,7 @@
 
     const syncButton = document.createElement("button");
     syncButton.type = "button";
-    syncButton.className = "vtus-button";
+    syncButton.className = "vtus-button vtus-sync";
     syncButton.setAttribute("aria-label", "Sync URL time");
     syncButton.title = "Sync URL time";
     syncButton.textContent = "↻";
@@ -506,7 +506,14 @@
     timeDisplay.className = "vtus-display";
     timeDisplay.setAttribute("aria-live", "polite");
 
-    widget.append(syncButton, timeDisplay);
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "vtus-button vtus-close";
+    closeButton.setAttribute("aria-label", "Close sync control and remove URL time");
+    closeButton.title = "Close and remove URL time";
+    closeButton.textContent = "×";
+
+    widget.append(syncButton, timeDisplay, closeButton);
 
     const style = document.createElement("style");
     style.id = "video-time-url-sync-style";
@@ -579,20 +586,31 @@
   let widget;
   let button;
   let display;
+  let closeButton;
+  let widgetDismissed = false;
 
   const ensureWidget = () => {
-    if (widget?.isConnected && button?.isConnected && display?.isConnected) return true;
+    if (widget?.isConnected && button?.isConnected && display?.isConnected && closeButton?.isConnected) return true;
 
     widget = createWidget();
-    button = widget.querySelector(".vtus-button");
+    button = widget.querySelector(".vtus-sync");
     display = widget.querySelector(".vtus-display");
+    closeButton = widget.querySelector(".vtus-close");
 
-    if (!(button instanceof HTMLButtonElement) || !(display instanceof HTMLElement)) {
+    if (!(button instanceof HTMLButtonElement) || !(display instanceof HTMLElement) || !(closeButton instanceof HTMLButtonElement)) {
       return false;
     }
 
     button.addEventListener("click", () => {
       syncTimeToUrl();
+      updateWidget();
+    });
+
+    closeButton.addEventListener("click", () => {
+      widgetDismissed = true;
+      const url = new URL(window.location.href);
+      url.searchParams.delete("t");
+      nativeReplaceState.call(history, history.state, "", `${url.pathname}${url.search}${url.hash}`);
       updateWidget();
     });
 
@@ -613,7 +631,7 @@
     const isKickPage = isKickHost(window.location.hostname);
 
     widget.classList.toggle("vtus-kick", isKickPage);
-    widget.hidden = !syncable;
+    widget.hidden = widgetDismissed || !syncable;
     button.disabled = !syncable;
     display.textContent = rawTime === null ? "none" : `${rawTime} (${formatSeconds(seconds)})`;
     log("updated widget", {
